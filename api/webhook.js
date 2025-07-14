@@ -120,7 +120,7 @@ bot.onText(/\/start/, async (msg) => {
 
         console.log('[BOT] Attempting to send message with keyboard...'); // <-- NEW LOG
         await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.`, {
-            reply_markup: replyKeyboard
+            reply_markup: replyKeyboard.keyboard
         })
     } catch (error) {
         console.error(`[BOT ERROR] Error in /start command for chat ID ${chatId}:`, error.message);
