@@ -28,9 +28,7 @@ bot.onText(/\/start/, async (msg) => {
         };
 
         console.log('[BOT] Attempting to send message with keyboard...'); // <-- NEW LOG
-        await bot.sendMessage(msg.chat.id, "Welcome", {
-        reply_markup: replyKeyboard
-        });
+        await bot.sendMessage(msg.chat.id, "Welcome");
         console.log('[BOT] OK');
         
     } catch (error) {
