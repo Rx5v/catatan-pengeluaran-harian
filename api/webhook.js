@@ -15,41 +15,49 @@ let isDbConnected = false; // Flag untuk status koneksi
 let connectionPromise = null;
 
 async function connectToDatabase() {
-    // Jika klien sudah ada dan terhubung, langsung kembalikan instance DB
     if (client && client.topology.isConnected()) {
         console.log('[DB] Reusing existing MongoDB connection.');
         return db;
     }
 
-    // Jika belum terhubung atau koneksi terputus, buat koneksi baru
+    if (client && !client.topology.isConnected()) {
+        console.log('[DB] Existing client found but not connected. Closing it before re-initialization.');
+        try {
+            await client.close();
+        } catch (closeErr) {
+            console.error('[DB ERROR] Failed to close existing client gracefully:', closeErr.message); // Log ini
+        }
+        client = null;
+        db = null;
+    }
+
     try {
         console.log('[DB] Attempting to establish a new MongoDB connection...');
         client = new MongoClient(uri, {
-            serverSelectionTimeoutMS: 5000 // Batas waktu untuk menemukan server
+            serverSelectionTimeoutMS: 10000 // Beri waktu lebih panjang (misal 10 detik) untuk cold start
         });
 
-        await client.connect(); // Menghubungkan ke MongoDB Atlas
-        db = client.db(dbName); // Pilih database
+        await client.connect();
+        db = client.db(dbName);
 
         console.log('[DB] Successfully connected to MongoDB Atlas.');
 
-        // Tambahkan event listener untuk error koneksi
         client.on('error', (err) => {
             console.error('[DB ERROR] MongoDB client connection error:', err.message);
-            // Reset klien dan database jika ada error agar bisa disambung ulang
             client = null;
             db = null;
         });
 
-        return db; // Mengembalikan instance database yang terhubung
+        return db;
     } catch (err) {
-        console.error('[DB ERROR] Failed to connect to MongoDB Atlas:', err.message);
-        client = null; // Reset klien dan database jika gagal
+        console.error('[DB ERROR] Failed to establish new connection to MongoDB Atlas:', err.message);
+        // **PENTING:** Log error objek lengkap untuk detail lebih lanjut
+        console.error('[DB ERROR] Full MongoDB connection error object:', JSON.stringify(err, null, 2));
+        client = null;
         db = null;
-        throw err; // Lempar error agar bisa ditangkap oleh pemanggil
+        throw err; // Lempar error ini agar tertangkap oleh handler bot
     }
 }
-
 
 // Inisialisasi bot (tanpa polling)
 const token = process.env.TELEGRAM_BOT_TOKEN;
