@@ -25,8 +25,14 @@ await bot.sendMessage(msg.chat.id, "Welcome", {
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         // Proses update yang diterima dari Telegram
-        bot.processUpdate(req.body);
-        res.status(200).send('OK'); // Penting untuk mengirim respons 200 OK ke Telegram
+        try {
+            bot.processUpdate(req.body);
+            res.status(200).send('OK'); // Penting untuk mengirim respons 200 OK ke Telegram
+            
+        } catch (error) {
+            console.log(error);
+            
+        }
     } else {
         res.status(405).send('Method Not Allowed');
     }
