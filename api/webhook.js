@@ -11,11 +11,14 @@ const pgClient = new Client({
 });
 
 // Fungsi untuk menghubungkan ke database
+const token = process.env.TELEGRAM_BOT_TOKEN;
 async function connectDb() {
     try {
+        console.log(token);
+        
         if (!pgClient._connected) { // Hindari koneksi berulang jika sudah terhubung
             await pgClient.connect();
-            console.log('Connected to PostgreSQL database (Supabase).');
+            console.log('Connected to PostgreSQL database (Supabase). & token: ', token);
         }
     } catch (err) {
         console.error('Error connecting to PostgreSQL database:', err.message);
@@ -24,7 +27,6 @@ async function connectDb() {
 }
 
 // Inisialisasi bot Telegram dengan mode webhook (tanpa polling)
-const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token); // Mode webhook, tidak perlu { polling: true }
 
 
