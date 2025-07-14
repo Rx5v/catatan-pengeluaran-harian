@@ -14,8 +14,6 @@ const pgClient = new Client({
 const token = process.env.TELEGRAM_BOT_TOKEN;
 async function connectDb() {
     try {
-        console.log(token);
-        
         if (!pgClient._connected) { // Hindari koneksi berulang jika sudah terhubung
             await pgClient.connect();
             console.log('Connected to PostgreSQL database (Supabase). & token: ', token);
@@ -54,6 +52,8 @@ async function ensureUser(userFromMsg) {
 
 // Perintah /start
 bot.onText(/\/start/, async (msg) => {
+    console.log(msg);
+    
     const chatId = msg.chat.id;
     try {
         await ensureUser(msg.from); // Pastikan pengguna terdaftar/diperbarui
