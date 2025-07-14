@@ -19,7 +19,7 @@ await bot.sendMessage(msg.chat.id, "Welcome", {
 "reply_markup": {
     "keyboard": [["Sample text", "Second sample"],   ["Keyboard"], ["I'm robot"]]
     }
-});
+}).then((a) => console.log(a)).catch((error)=> console.warn(error))
 
 });
 module.exports = async (req, res) => {
