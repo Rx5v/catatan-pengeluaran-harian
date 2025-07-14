@@ -26,8 +26,10 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         // Proses update yang diterima dari Telegram
         try {
-            bot.processUpdate(req.body);
+           const a = bot.processUpdate(req.body);
+           console.log(a);
             res.status(200).send('OK'); // Penting untuk mengirim respons 200 OK ke Telegram
+            
             
         } catch (error) {
             console.log(error);
