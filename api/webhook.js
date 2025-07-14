@@ -103,8 +103,10 @@ async function ensureUser(userFromMsg) {
                     join_date: new Date()
                 }
             },
-            { upsert: true, returnDocument: 'after', maxTimeMS: 2000 }
+            { upsert: true, returnDocument: 'after' }
         );
+        console.log('result: ', result);
+        
         if (!result) {
             console.warn('[DB-EnsureUser WARNING] findOneAndUpdate returned a null/undefined result object. This is unexpected.');
             throw new Error("findOneAndUpdate returned a null/undefined result object.");
@@ -326,8 +328,9 @@ module.exports = async (req, res) => {
         try {
             // bot.processUpdate akan memicu event listeners bot.
             // Handler bot sekarang akan mengasumsikan 'db' sudah siap.
-            bot.processUpdate(req.body);
-            console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
+            if(bot.processUpdate(req.body)){
+                console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
+            }
         } catch (error) {
             console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
         }
