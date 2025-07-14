@@ -75,6 +75,8 @@ async function ensureUser(userFromMsg) {
     }
     
     try {
+        console.log('[PROCESS] Esuring data');
+        
         const usersCollection = currentDb.collection('users'); // Gunakan currentDb
         
         const result = await usersCollection.findOneAndUpdate(
@@ -91,7 +93,7 @@ async function ensureUser(userFromMsg) {
             },
             { upsert: true, returnDocument: 'after' }
         );
-        
+        console.log('[SUCCESS] Esuring data');
         return result.value._id;
     } catch (error) {
         console.error('Error ensuring user in MongoDB:', error.message);
