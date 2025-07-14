@@ -105,15 +105,29 @@ async function ensureUser(userFromMsg) {
             },
             { upsert: true, returnDocument: 'after' }
         );
-         if (result && result.value) {
-            console.log(`[DB-EnsureUser] findOneAndUpdate successful. Document: ${JSON.stringify(result.value)}`); 
-            console.log(`[DB-EnsureUser] Returned _id: ${result.value._id}`); 
-        } else {
-            // Ini akan terjadi jika dokumen tidak ditemukan dan upsert tidak berhasil atau ada masalah lain
-            console.warn('[DB-EnsureUser WARNING] findOneAndUpdate did not return a document or result.value is null.');
-            // Ini bisa jadi penyebab kenapa data tidak tersimpan
+        if (!result) {
+            console.warn('[DB-EnsureUser WARNING] findOneAndUpdate returned a null/undefined result object. This is unexpected.');
+            throw new Error("findOneAndUpdate returned a null/undefined result object.");
         }
-        console.log('[SUCCESS] Esuring data');
+        
+        if (!result.value) {
+            // Ini bisa terjadi jika dokumen tidak ditemukan dan upsert:false,
+            // tapi karena kita pakai upsert:true, ini seharusnya TIDAK terjadi.
+            console.warn('[DB-EnsureUser WARNING] findOneAndUpdate result.value is null. Document might not have been created/updated as expected.');
+            console.warn(`[DB-EnsureUser WARNING] Full result object: ${JSON.stringify(result)}`);
+            throw new Error("findOneAndUpdate did not return a valid document value.");
+        }
+
+        if (!result.value._id) {
+            console.warn('[DB-EnsureUser WARNING] findOneAndUpdate result.value._id is null/undefined. Document might be missing ID.');
+            console.warn(`[DB-EnsureUser WARNING] Full result.value object: ${JSON.stringify(result.value)}`);
+            throw new Error("Document created/updated but missing _id.");
+        }
+
+        console.log(`[DB-EnsureUser] findOneAndUpdate successful. Document: ${JSON.stringify(result.value)}`); 
+        console.log(`[DB-EnsureUser] Returned _id: ${result.value._id}`); 
+        
+        console.log(`[BOT] ensureUser completed for ${userFromMsg.id.toString()}. Returned ID: ${result.value._id}`);
         return result.value._id;
     } catch (error) {
         console.error('Error ensuring user in MongoDB:', error.message);
