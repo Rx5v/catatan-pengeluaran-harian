@@ -79,6 +79,17 @@ async function ensureUser(userFromMsg) {
         
         const usersCollection = currentDb.collection('users'); // Gunakan currentDb
         console.log('[PROCESS] Set table into user');
+           console.log(`[DB-EnsureUser] Update query: ${JSON.stringify({ telegram_id: userFromMsg.id.toString() })}`); // <-- NEW LOG
+        console.log(`[DB-EnsureUser] Update data: ${JSON.stringify({ 
+            $set: { 
+                first_name: userFromMsg.first_name,
+                last_name: userFromMsg.last_name,
+                username: userFromMsg.username
+            },
+            $setOnInsert: { 
+                join_date: new Date()
+            }
+        })}`);
         
         const result = await usersCollection.findOneAndUpdate(
             { telegram_id: userFromMsg.id.toString() },
