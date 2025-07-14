@@ -14,103 +14,79 @@ let db = null;      // Ini akan menjadi instance Database
 let isDbConnected = false; // Flag untuk status koneksi
 let connectionPromise = null;
 
-async function connectDb() {
-    // Jika sudah terhubung, langsung keluar
-    if (isDbConnected && client && client.topology.isConnected()) {
-        console.log('[DB] Already connected to MongoDB. Reusing existing connection.');
-        return;
+async function connectToDatabase() {
+    // Jika klien sudah ada dan terhubung, langsung kembalikan instance DB
+    if (client && client.topology.isConnected()) {
+        console.log('[DB] Reusing existing MongoDB connection.');
+        return db;
     }
 
-    // Jika ada promise koneksi yang sedang berjalan, tunggu saja promise itu selesai
-    if (connectionPromise) {
-        console.log('[DB] Connection attempt already in progress. Waiting for it to complete.');
-        try {
-            await connectionPromise; // Tunggu promise yang sedang berjalan
-            // Setelah promise selesai, periksa lagi apakah sudah terhubung
-            if (isDbConnected && client && client.topology.isConnected()) {
-                return;
-            }
-        } catch (e) {
-            console.error('[DB ERROR] Waiting for existing connection promise failed:', e.message);
-            connectionPromise = null; // Reset promise jika gagal
-        }
-    }
-    
-    // Jika masih belum terhubung atau ada masalah, buat promise koneksi baru
-    if (!isDbConnected || !client || !client.topology.isConnected()) {
-        connectionPromise = (async () => { // Bungkus logika koneksi dalam sebuah promise
-            try {
-                console.log('[DB] Attempting to create a new MongoDB client and connect...');
-                client = new MongoClient(uri, {
-                    serverSelectionTimeoutMS: 5000 
-                });
+    // Jika belum terhubung atau koneksi terputus, buat koneksi baru
+    try {
+        console.log('[DB] Attempting to establish a new MongoDB connection...');
+        client = new MongoClient(uri, {
+            serverSelectionTimeoutMS: 5000 // Batas waktu untuk menemukan server
+        });
 
-                await client.connect(); 
-                db = client.db(dbName);
-                isDbConnected = true;
-                console.log('[DB] Successfully connected to MongoDB Atlas.');
+        await client.connect(); // Menghubungkan ke MongoDB Atlas
+        db = client.db(dbName); // Pilih database
 
-                client.on('error', (err) => {
-                    console.error('[DB ERROR] MongoDB client connection error:', err.message);
-                    isDbConnected = false; 
-                    if (client && client.topology.isConnected()) {
-                        client.close().catch(e => console.error('Error closing client on error:', e));
-                    }
-                });
-                return true; // Sukses
-            } catch (err) {
-                console.error('[DB ERROR] Failed to establish new connection to MongoDB Atlas:', err.message);
-                isDbConnected = false;
-                client = null; // Reset client agar bisa dibuat ulang
-                db = null; // Reset db
-                throw err; // Lempar error agar bisa ditangkap oleh await
-            } finally {
-                connectionPromise = null; // Hapus promise setelah selesai (baik sukses maupun gagal)
-            }
-        })();
-        await connectionPromise; // Tunggu promise koneksi baru
+        console.log('[DB] Successfully connected to MongoDB Atlas.');
+
+        // Tambahkan event listener untuk error koneksi
+        client.on('error', (err) => {
+            console.error('[DB ERROR] MongoDB client connection error:', err.message);
+            // Reset klien dan database jika ada error agar bisa disambung ulang
+            client = null;
+            db = null;
+        });
+
+        return db; // Mengembalikan instance database yang terhubung
+    } catch (err) {
+        console.error('[DB ERROR] Failed to connect to MongoDB Atlas:', err.message);
+        client = null; // Reset klien dan database jika gagal
+        db = null;
+        throw err; // Lempar error agar bisa ditangkap oleh pemanggil
     }
 }
+
 
 // Inisialisasi bot (tanpa polling)
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token);
-
-// Panggil connectDb saat awal load modul (sekali per cold start)
-connectDb();
 
 
 // --- Logika Penanganan Pesan ---
 
 // Fungsi utilitas untuk memproses pengguna (insert/update)
 async function ensureUser(userFromMsg) {
-     await connectDb(); 
-    if (!isDbConnected || !db) {
+    // Pastikan database terhubung sebelum melakukan query
+    const currentDb = await connectToDatabase();
+    if (!currentDb) {
         throw new Error('Database connection is not available for ensureUser.');
     }
-
+    
     try {
-        const usersCollection = db.collection('users'); // Dapatkan koleksi users
+        const usersCollection = currentDb.collection('users'); // Gunakan currentDb
         
-        // FindOneAndUpdate adalah seperti UPSERT: temukan dan perbarui, atau sisipkan jika tidak ada
         const result = await usersCollection.findOneAndUpdate(
-            { telegram_id: userFromMsg.id.toString() }, // Query untuk menemukan user
+            { telegram_id: userFromMsg.id.toString() },
             { 
-                $set: { // Update bidang yang mungkin berubah
+                $set: { 
                     first_name: userFromMsg.first_name,
                     last_name: userFromMsg.last_name,
                     username: userFromMsg.username
                 },
-                $setOnInsert: { // Set ini hanya saat dokumen baru disisipkan
+                $setOnInsert: { 
                     join_date: new Date()
                 }
             },
-            { upsert: true, returnDocument: 'after' } // upsert: true akan menyisipkan jika tidak ditemukan; returnDocument: 'after' mengembalikan dokumen setelah update
+            { upsert: true, returnDocument: 'after' }
         );
         
-        return result.value._id; // Mengembalikan MongoDB _id sebagai user ID internal
+        return result.value._id;
     } catch (error) {
-        console.error('Error ensuring user:', error.message);
+        console.error('Error ensuring user in MongoDB:', error.message);
         throw error;
     }
 }
@@ -158,13 +134,8 @@ bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
     }
 
     try {
-        if (!isDbConnected || !db) { // Periksa lagi sebelum query penting
-            console.warn('[DB WARNING] Database not connected for /add. Attempting to reconnect...');
-            await connectDb();
-            if (!isDbConnected || !db) {
-                 throw new Error('Database connection failed for /add command.');
-            }
-        }
+        const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /add command.'); }
 
         const userId = await ensureUser(msg.from); // Dapatkan MongoDB _id sebagai user ID internal
         const expensesCollection = db.collection('expenses'); // Dapatkan koleksi expenses
@@ -194,13 +165,11 @@ bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
 // Perintah /today
 bot.onText(/\/today/, async (msg) => {
     const chatId = msg.chat.id;
-    const telegramId = msg.from.id.toString();
 
     try {
-        if (!isDbConnected || !db) { // Periksa koneksi
-            await connectDb();
-            if (!isDbConnected || !db) { throw new Error('DB not ready for /today.'); }
-        }
+          const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /today.'); }
+        
         
         const userId = await ensureUser(msg.from);
         const expensesCollection = db.collection('expenses');
@@ -245,10 +214,8 @@ bot.onText(/\/history/, async (msg) => {
     const telegramId = msg.from.id.toString();
 
     try {
-        if (!isDbConnected || !db) { // Periksa koneksi
-            await connectDb();
-            if (!isDbConnected || !db) { throw new Error('DB not ready for /history.'); }
-        }
+       const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /history.'); }
 
         const userId = await ensureUser(msg.from);
         const expensesCollection = db.collection('expenses');
