@@ -143,8 +143,7 @@ bot.onText(/\/start/, async (msg) => {
     console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
     try {
         console.log('[BOT] Attempting to ensure user...'); // <-- NEW LOG
-        const user = await ensureUser(msg.from);
-        console.log(user);
+        await ensureUser(msg.from);
         
         console.log(`[BOT] User ${msg.from.id} ensured in DB.`); // <-- NEW LOG
          const options = {
