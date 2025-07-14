@@ -196,9 +196,9 @@ module.exports = async (req, res) => {
     console.log("body: ", req.body);
     
     if (req.method === 'POST') {
-        // Proses update yang diterima dari Telegram
+         console.log('[VERCEL] Processing Telegram update...'); // Log ini
         bot.processUpdate(req.body);
-        res.status(200).send('OK'); // Penting untuk mengirim respons 200 OK ke Telegram
+        console.log('[VERCEL] Sent 200 OK response.')
     } else {
         res.status(405).send('Method Not Allowed');
     }
