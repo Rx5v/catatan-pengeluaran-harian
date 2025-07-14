@@ -8,7 +8,7 @@ bot.on('message', (msg) => {
 
 var Hi = "hi";
 if (msg.text.toString().toLowerCase().indexOf(Hi) === 0) {
-bot.sendMessage(msg.chat.id,"Hello dear user");
+bot.sendMessage(msg.chat.id, `Hello ${msg.chat.username}`);
 }
 
 });
