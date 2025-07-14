@@ -12,10 +12,10 @@ bot.sendMessage(msg.chat.id,"Hello dear user");
 }
 
 });
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
 console.log('[BOT] /Start');
 
-bot.sendMessage(msg.chat.id, "Welcome", {
+await bot.sendMessage(msg.chat.id, "Welcome", {
 "reply_markup": {
     "keyboard": [["Sample text", "Second sample"],   ["Keyboard"], ["I'm robot"]]
     }
