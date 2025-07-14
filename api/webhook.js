@@ -14,6 +14,8 @@ let isDbConnected = pgClient._connected;
 
 // Fungsi untuk menghubungkan ke database
 async function connectDb() {
+    console.log("is db connected: ", isDbConnected);
+    
    if (!isDbConnected) {
         try {
             console.log('[DB] Attempting to connect to PostgreSQL...');
