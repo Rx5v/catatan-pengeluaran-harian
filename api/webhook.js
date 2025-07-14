@@ -52,9 +52,11 @@ async function ensureUser(userFromMsg) {
 
 // Perintah /start
 bot.onText(/\/start/, async (msg) => {
-    console.log(msg);
+    console.log("ontext: ", msg);
     
     const chatId = msg.chat.id;
+    console.log("chat id: ", chatId);
+    console.log("chat from: ", msg.from);
     try {
         await ensureUser(msg.from); // Pastikan pengguna terdaftar/diperbarui
         bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.
