@@ -157,7 +157,7 @@ bot.onText(/\/start/, async (msg) => {
         // };
 
         console.log('[BOT] Attempting to send message with keyboard...'); // <-- NEW LOG
-        bot.sendMessage(msg.chat.id, "Welcome", {
+        await bot.sendMessage(msg.chat.id, "Welcome", {
         "reply_markup": {
             "keyboard": [["Sample text", "Second sample"],   ["Keyboard"], ["I'm robot"]]
             }
