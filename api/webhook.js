@@ -10,17 +10,25 @@ const pgClient = new Client({
     ssl: { rejectUnauthorized: false } // Penting untuk koneksi dari Vercel ke Supabase
 });
 let isConnected = false
+let isDbConnected = false;
 
 // Fungsi untuk menghubungkan ke database
 async function connectDb() {
-    try {
-        if (!pgClient._connected) { // Hindari koneksi berulang jika sudah terhubung
-            await pgClient.connect();
-            console.log('Connected to PostgreSQL database (Supabase).');
+   if (!isDbConnected) {
+        try {
+            console.log('[DB] Attempting to connect to PostgreSQL...');
+            await pgClient.connect(); // Ini yang hanya boleh dipanggil sekali per instance Client
+            isDbConnected = true; // Set flag menjadi true setelah berhasil terhubung
+            console.log('[DB] Connected to PostgreSQL database (Supabase).');
+        } catch (err) {
+            console.error('[DB ERROR] Failed to connect to PostgreSQL:', err.message);
+            isDbConnected = false; // Set flag menjadi false jika gagal
+            // Penting: Jangan re-throw error di sini atau memblokir,
+            // karena ini akan menyebabkan timeout pada fungsi Vercel.
+            // Biarkan error tercatat dan coba lagi pada pemanggilan berikutnya.
         }
-    } catch (err) {
-        console.error('Error connecting to PostgreSQL database:', err.message);
-        // Pertimbangkan strategi retry atau keluar jika koneksi vital gagal
+    } else {
+        console.log('[DB] Already connected to Supabase.');
     }
 }
 
@@ -33,6 +41,14 @@ connectDb();
 
 // Fungsi utilitas untuk memproses pengguna (insert/update)
 async function ensureUser(userFromMsg) {
+    if (!isDbConnected) {
+        console.warn('[DB WARNING] Database not connected. Attempting to reconnect for query...');
+        await connectDb(); // Coba hubungkan lagi jika terputus
+        if (!isDbConnected) { // Jika setelah reconnect masih gagal
+            throw new Error('Database connection failed for ensureUser.');
+        }
+    }
+    
     try {
         const res = await pgClient.query(
             `INSERT INTO users (telegram_id, first_name, last_name, username)
@@ -44,10 +60,10 @@ async function ensureUser(userFromMsg) {
              RETURNING id;`,
             [userFromMsg.id.toString(), userFromMsg.first_name, userFromMsg.last_name, userFromMsg.username]
         );
-        return res.rows[0].id; // Mengembalikan ID internal pengguna dari tabel users
+        return res.rows[0].id;
     } catch (error) {
         console.error('Error ensuring user:', error.message);
-        throw error; // Lempar error agar bisa ditangani di pemanggil
+        throw error;
     }
 }
 bot.onText(/\/start/, async (msg) => {
@@ -172,34 +188,75 @@ Gunakan perintah berikut:
 `);
 });
 
+bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const amount = parseFloat(match[1]);
+    const description = match[2].trim();
+    const category = match[3] ? match[3].trim() : 'Lain-lain';
+
+    if (isNaN(amount) || amount <= 0 || !description) {
+        await bot.sendMessage(chatId, 'Format salah. Gunakan: `/add <jumlah> <deskripsi> [kategori]`\nContoh: `/add 50000 Makan siang mie ayam`', { parse_mode: 'Markdown' });
+        return;
+    }
+
+    try {
+        if (!isDbConnected) { // Periksa lagi sebelum query penting
+            console.warn('[DB WARNING] Database not connected for /add. Attempting to reconnect...');
+            await connectDb();
+            if (!isDbConnected) {
+                 throw new Error('Database connection failed for /add command.');
+            }
+        }
+
+        const userId = await ensureUser(msg.from); // Dapatkan ID internal pengguna
+
+        await pgClient.query(
+            `INSERT INTO expenses (user_id, amount, description, category, transaction_date)
+             VALUES ($1, $2, $3, $4, CURRENT_DATE);`,
+            [userId, amount, description, category]
+        );
+        
+        const inlineKeyboard = { /* ... definisi inline keyboard Anda ... */ }; // Asumsikan Anda sudah punya ini
+
+        await bot.sendMessage(chatId, `✅ Pengeluaran "${description}" sebesar Rp ${amount.toLocaleString('id-ID')} (${category}) berhasil dicatat!`, {
+            reply_markup: inlineKeyboard
+        });
+        console.log(`[BOT] Expense added for user ${userId}: ${description} (${amount})`);
+
+    } catch (dbError) {
+        console.error('Error adding expense:', dbError.message);
+        await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mencatat pengeluaran Anda. Silakan coba lagi.');
+    }
+});
+
+
 module.exports = async (req, res) => {
     console.log('[VERCEL] Webhook function invoked.');
 
-    // PENTING: Segera kirim respons 200 OK ke Telegram.
-    // Ini memberitahu Telegram bahwa update sudah diterima,
-    // mencegah timeout di sisi Telegram.
+    // Segera kirim respons 200 OK ke Telegram.
     res.status(200).send('OK');
     console.log('[VERCEL] Sent 200 OK response to Telegram.');
 
-    // Sekarang, proses update dari Telegram di latar belakang.
+    // Proses update dari Telegram di latar belakang.
+    // Ini penting agar tidak memblokir respons 200 OK.
     // Pastikan koneksi DB sudah ada atau coba buat lagi jika terputus.
-    if (!isConnected) { // Periksa status koneksi
-        await connectDb(); // Coba hubungkan lagi jika terputus
+    if (!isDbConnected) {
+        console.log('[VERCEL] Database not connected yet. Attempting to connect...');
+        await connectDb(); // Ini akan mencoba menyambung jika belum terhubung
     }
 
     if (req.method === 'POST') {
         console.log('[VERCEL] Processing Telegram update asynchronously...');
-        // bot.processUpdate akan memicu event listeners bot
-        // Panggil ini tanpa 'await' agar fungsi utama segera selesai
-        // dan tidak memblokir respons 200 OK.
         try {
+            // bot.processUpdate akan memicu event listeners bot
+            // Panggil ini tanpa 'await' agar fungsi utama segera selesai
+            // dan tidak memblokir respons 200 OK.
             bot.processUpdate(req.body);
-            console.log('[VERCEL] Update processed by bot listeners.');
+            console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
         } catch (error) {
             console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
         }
     } else {
-        // Ini akan dicatat, tapi respon sudah 200 OK sebelumnya.
         console.log('[VERCEL] Method Not Allowed for this request.');
     }
 };
