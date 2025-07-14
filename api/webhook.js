@@ -40,7 +40,7 @@ async function connectToDatabase() {
         await client.connect();
         db = client.db(dbName);
 
-        console.log('[DB] Successfully connected to MongoDB Atlas.', db);
+        console.log('[DB] Successfully connected to MongoDB Atlas.');
 
         client.on('error', (err) => {
             console.error('[DB ERROR] MongoDB client connection error:', err.message);
@@ -99,188 +99,193 @@ async function ensureUser(userFromMsg) {
     }
 }
 
-// // Perintah /start
-// bot.onText(/\/start/, async (msg) => {
-//     const chatId = msg.chat.id;
-//     console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
-//     try {
-//         await ensureUser(msg.from);
-//         console.log(`[BOT] User ${msg.from.id} ensured in DB.`);
+// Perintah /start
+bot.onText(/\/start/, async (msg) => {
+    const chatId = msg.chat.id;
+    console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
+    try {
+        await ensureUser(msg.from);
+        console.log(`[BOT] User ${msg.from.id} ensured in DB.`);
 
-//         const replyKeyboard = { // Pastikan Anda memiliki definisi ini
-//             keyboard: [
-//                 [{ text: '➕ Catat Pengeluaran' }],
-//                 [{ text: '🗓️ Pengeluaran Hari Ini' }, { text: '📜 Riwayat Pengeluaran' }],
-//                 [{ text: 'ℹ️ Bantuan' }]
-//             ],
-//             resize_keyboard: true,
-//             one_time_keyboard: false,
-//         };
+        const replyKeyboard = { // Pastikan Anda memiliki definisi ini
+            keyboard: [
+                [{ text: '➕ Catat Pengeluaran' }],
+                [{ text: '🗓️ Pengeluaran Hari Ini' }, { text: '📜 Riwayat Pengeluaran' }],
+                [{ text: 'ℹ️ Bantuan' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false,
+        };
 
-//         await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.
-// Silakan pilih menu di bawah atau ketik perintah langsung:`, {
-//             reply_markup: replyKeyboard
-//         });
-//         console.log(`[BOT] Sent /start response to chat ID: ${chatId}`);
+        await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.
+Silakan pilih menu di bawah atau ketik perintah langsung:`, {
+            reply_markup: replyKeyboard
+        });
+        console.log(`[BOT] Sent /start response to chat ID: ${chatId}`);
 
-//     } catch (error) {
-//         console.error(`[BOT ERROR] Error in /start command for chat ID ${chatId}:`, error.message);
-//         await bot.sendMessage(chatId, 'Maaf, terjadi kesalahan. Silakan coba lagi nanti.');
-//     }
-// });
+    } catch (error) {
+        console.error(`[BOT ERROR] Error in /start command for chat ID ${chatId}:`, error.message);
+        await bot.sendMessage(chatId, 'Maaf, terjadi kesalahan. Silakan coba lagi nanti.');
+    }
+});
 
-// // Perintah /add <jumlah> <deskripsi> [kategori]
-// bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
-//     const chatId = msg.chat.id;
-//     const amount = parseFloat(match[1]);
-//     const description = match[2].trim();
-//     const category = match[3] ? match[3].trim() : 'Lain-lain';
+// Perintah /add <jumlah> <deskripsi> [kategori]
+bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const amount = parseFloat(match[1]);
+    const description = match[2].trim();
+    const category = match[3] ? match[3].trim() : 'Lain-lain';
 
-//     if (isNaN(amount) || amount <= 0 || !description) {
-//         await bot.sendMessage(chatId, 'Format salah. Gunakan: `/add <jumlah> <deskripsi> [kategori]`\nContoh: `/add 50000 Makan siang mie ayam`', { parse_mode: 'Markdown' });
-//         return;
-//     }
+    if (isNaN(amount) || amount <= 0 || !description) {
+        await bot.sendMessage(chatId, 'Format salah. Gunakan: `/add <jumlah> <deskripsi> [kategori]`\nContoh: `/add 50000 Makan siang mie ayam`', { parse_mode: 'Markdown' });
+        return;
+    }
 
-//     try {
-//         const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
-//         if (!currentDb) { throw new Error('DB not ready for /add command.'); }
+    try {
+        const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /add command.'); }
 
-//         const userId = await ensureUser(msg.from); // Dapatkan MongoDB _id sebagai user ID internal
-//         const expensesCollection = db.collection('expenses'); // Dapatkan koleksi expenses
+        const userId = await ensureUser(msg.from); // Dapatkan MongoDB _id sebagai user ID internal
+        const expensesCollection = db.collection('expenses'); // Dapatkan koleksi expenses
 
-//         await expensesCollection.insertOne({
-//             userId: userId, // Simpan ObjectId dari user
-//             amount: amount,
-//             description: description,
-//             category: category,
-//             transaction_date: new Date(), // Simpan sebagai objek Date
-//             created_at: new Date()
-//         });
+        await expensesCollection.insertOne({
+            userId: userId, // Simpan ObjectId dari user
+            amount: amount,
+            description: description,
+            category: category,
+            transaction_date: new Date(), // Simpan sebagai objek Date
+            created_at: new Date()
+        });
         
-//         const inlineKeyboard = { /* ... definisi inline keyboard Anda ... */ };
+        const inlineKeyboard = { /* ... definisi inline keyboard Anda ... */ };
 
-//         await bot.sendMessage(chatId, `✅ Pengeluaran "${description}" sebesar Rp ${amount.toLocaleString('id-ID')} (${category}) berhasil dicatat!`, {
-//             reply_markup: inlineKeyboard
-//         });
-//         console.log(`[BOT] Expense added for user ${userId}: ${description} (${amount})`);
+        await bot.sendMessage(chatId, `✅ Pengeluaran "${description}" sebesar Rp ${amount.toLocaleString('id-ID')} (${category}) berhasil dicatat!`, {
+            reply_markup: inlineKeyboard
+        });
+        console.log(`[BOT] Expense added for user ${userId}: ${description} (${amount})`);
 
-//     } catch (dbError) {
-//         console.error('Error adding expense:', dbError.message);
-//         await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mencatat pengeluaran Anda. Silakan coba lagi.');
-//     }
-// });
+    } catch (dbError) {
+        console.error('Error adding expense:', dbError.message);
+        await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mencatat pengeluaran Anda. Silakan coba lagi.');
+    }
+});
 
-// // Perintah /today
-// bot.onText(/\/today/, async (msg) => {
-//     const chatId = msg.chat.id;
+// Perintah /today
+bot.onText(/\/today/, async (msg) => {
+    const chatId = msg.chat.id;
 
-//     try {
-//           const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
-//         if (!currentDb) { throw new Error('DB not ready for /today.'); }
+    try {
+          const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /today.'); }
         
         
-//         const userId = await ensureUser(msg.from);
-//         const expensesCollection = db.collection('expenses');
+        const userId = await ensureUser(msg.from);
+        const expensesCollection = db.collection('expenses');
 
-//         // Untuk query tanggal "hari ini", kita perlu rentang waktu dari awal hari hingga akhir hari
-//         const today = new Date();
-//         today.setHours(0, 0, 0, 0); // Mulai hari ini
-//         const tomorrow = new Date(today);
-//         tomorrow.setDate(tomorrow.getDate() + 1); // Besok awal hari
+        // Untuk query tanggal "hari ini", kita perlu rentang waktu dari awal hari hingga akhir hari
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Mulai hari ini
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1); // Besok awal hari
 
-//         const res = await expensesCollection.find({
-//             userId: userId,
-//             transaction_date: {
-//                 $gte: today, // Greater than or equal to
-//                 $lt: tomorrow // Less than
-//             }
-//         }).sort({ created_at: -1 }).toArray(); // Urutkan dari terbaru, konversi ke array
+        const res = await expensesCollection.find({
+            userId: userId,
+            transaction_date: {
+                $gte: today, // Greater than or equal to
+                $lt: tomorrow // Less than
+            }
+        }).sort({ created_at: -1 }).toArray(); // Urutkan dari terbaru, konversi ke array
 
-//         if (res.length === 0) {
-//             await bot.sendMessage(chatId, 'Anda belum mencatat pengeluaran hari ini.');
-//             return;
-//         }
+        if (res.length === 0) {
+            await bot.sendMessage(chatId, 'Anda belum mencatat pengeluaran hari ini.');
+            return;
+        }
 
-//         let totalToday = 0;
-//         let summary = 'Pengeluaran Anda hari ini:\n\n';
-//         res.forEach(exp => {
-//             totalToday += parseFloat(exp.amount);
-//             summary += `• Rp ${exp.amount.toLocaleString('id-ID')} (${exp.category}): ${exp.description}\n`;
-//         });
+        let totalToday = 0;
+        let summary = 'Pengeluaran Anda hari ini:\n\n';
+        res.forEach(exp => {
+            totalToday += parseFloat(exp.amount);
+            summary += `• Rp ${exp.amount.toLocaleString('id-ID')} (${exp.category}): ${exp.description}\n`;
+        });
 
-//         summary += `\nTotal hari ini: *Rp ${totalToday.toLocaleString('id-ID')}*`;
-//         await bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' });
-//     } catch (dbError) {
-//         console.error('Error fetching today\'s expenses:', dbError.message);
-//         await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil data pengeluaran hari ini.');
-//     }
-// });
+        summary += `\nTotal hari ini: *Rp ${totalToday.toLocaleString('id-ID')}*`;
+        await bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' });
+    } catch (dbError) {
+        console.error('Error fetching today\'s expenses:', dbError.message);
+        await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil data pengeluaran hari ini.');
+    }
+});
 
-// // Perintah /history
-// bot.onText(/\/history/, async (msg) => {
-//     const chatId = msg.chat.id;
-//     const telegramId = msg.from.id.toString();
+// Perintah /history
+bot.onText(/\/history/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
 
-//     try {
-//        const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
-//         if (!currentDb) { throw new Error('DB not ready for /history.'); }
+    try {
+       const currentDb = await connectToDatabase(); // Pastikan koneksi DB tersedia
+        if (!currentDb) { throw new Error('DB not ready for /history.'); }
 
-//         const userId = await ensureUser(msg.from);
-//         const expensesCollection = db.collection('expenses');
+        const userId = await ensureUser(msg.from);
+        const expensesCollection = db.collection('expenses');
 
-//         const res = await expensesCollection.find({
-//             userId: userId
-//         }).sort({ transaction_date: -1, created_at: -1 }).limit(5).toArray(); // Ambil 5 pengeluaran terakhir
+        const res = await expensesCollection.find({
+            userId: userId
+        }).sort({ transaction_date: -1, created_at: -1 }).limit(5).toArray(); // Ambil 5 pengeluaran terakhir
 
-//         if (res.length === 0) {
-//             await bot.sendMessage(chatId, 'Anda belum mencatat pengeluaran apa pun.');
-//             return;
-//         }
+        if (res.length === 0) {
+            await bot.sendMessage(chatId, 'Anda belum mencatat pengeluaran apa pun.');
+            return;
+        }
 
-//         let history = '5 Pengeluaran terakhir Anda:\n\n';
-//         res.forEach(exp => {
-//             // Format tanggal yang disimpan sebagai objek Date
-//             const date = new Date(exp.transaction_date).toLocaleDateString('id-ID', {
-//                 day: '2-digit',
-//                 month: 'short',
-//                 year: 'numeric'
-//             });
-//             history += `- ${date}: Rp ${exp.amount.toLocaleString('id-ID')} (${exp.category}): ${exp.description}\n`;
-//         });
-//         await bot.sendMessage(chatId, history);
+        let history = '5 Pengeluaran terakhir Anda:\n\n';
+        res.forEach(exp => {
+            // Format tanggal yang disimpan sebagai objek Date
+            const date = new Date(exp.transaction_date).toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+            history += `- ${date}: Rp ${exp.amount.toLocaleString('id-ID')} (${exp.category}): ${exp.description}\n`;
+        });
+        await bot.sendMessage(chatId, history);
 
-//     } catch (dbError) {
-//         console.error('Error fetching history:', dbError.message);
-//         await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil riwayat pengeluaran.');
-//     }
-// });
+    } catch (dbError) {
+        console.error('Error fetching history:', dbError.message);
+        await bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil riwayat pengeluaran.');
+    }
+});
+
+
+// ... (handler lainnya dan callback_query) ...
 
 
 // --- Handler untuk Vercel Serverless Function ---
 module.exports = async (req, res) => {
     console.log('[VERCEL] Webhook function invoked.');
-    
-    await connectToDatabase();
-    
-    console.log('[RESULT] Finish.');
-
+      try {
+        await connectToDatabase();
+    } catch (dbErr) {
+        console.error('[VERCEL ERROR] Failed to connect to DB during invocation. Responding with 500.', dbErr.message);
+        // Jika koneksi DB gagal di awal, Telegram harus tahu ini fatal
+        return res.status(500).send('Internal Server Error: Database connection failed.');
+    }
     // Segera kirim respons 200 OK ke Telegram.
-    // res.status(200).send('OK');
-    // console.log('[VERCEL] Sent 200 OK response to Telegram.');
+    res.status(200).send('OK');
+    console.log('[VERCEL] Sent 200 OK response to Telegram.');
 
-    // // Proses update dari Telegram di latar belakang secara asynchronous
-    // if (req.method === 'POST') {
-    //     console.log('[VERCEL] Processing Telegram update asynchronously...');
-    //     // Tidak perlu await connectDb() di sini lagi secara eksplisit,
-    //     // karena bot.processUpdate akan memicu handler onText/onMessage
-    //     // yang di dalamnya sudah memanggil await connectDb()
-    //     try {
-    //         bot.processUpdate(req.body);
-    //         console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
-    //     } catch (error) {
-    //         console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
-    //     }
-    // } else {
-    //     console.log('[VERCEL] Method Not Allowed for this request.');
-    // }
+    // Proses update dari Telegram di latar belakang secara asynchronous
+    if (req.method === 'POST') {
+        console.log('[VERCEL] Processing Telegram update asynchronously...');
+        // Tidak perlu await connectDb() di sini lagi secara eksplisit,
+        // karena bot.processUpdate akan memicu handler onText/onMessage
+        // yang di dalamnya sudah memanggil await connectDb()
+        try {
+            bot.processUpdate(req.body);
+            console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
+        } catch (error) {
+            console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
+        }
+    } else {
+        console.log('[VERCEL] Method Not Allowed for this request.');
+    }
 };
