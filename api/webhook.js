@@ -146,19 +146,6 @@ bot.onText(/\/start/, async (msg) => {
         // await ensureUser(msg.from);
         
         console.log(`[BOT] User ${msg.from.id} ensured in DB.`); // <-- NEW LOG
-         const options = {
-            reply_markup: {
-            keyboard: [
-                        [{ text: '➕ Catat Pengeluaran' }],
-                        [{ text: '🗓️ Pengeluaran Hari Ini' }, { text: '📜 Riwayat Pengeluaran' }],
-                        [{ text: 'ℹ️ Bantuan' }]
-                    ],
-            resize_keyboard: true,
-            one_time_keyboard: false
-            }
-        };
-
-
         // const replyKeyboard = { // Pastikan ini terdefinisi dengan benar
         //     keyboard: [
         //         [{ text: '➕ Catat Pengeluaran' }],
@@ -170,9 +157,11 @@ bot.onText(/\/start/, async (msg) => {
         // };
 
         console.log('[BOT] Attempting to send message with keyboard...'); // <-- NEW LOG
-        await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.`, {"reply_markup": {
-    "keyboard": [["Sample text", "Second sample"],   ["Keyboard"], ["I'm robot"]]
-    }})
+        bot.sendMessage(msg.chat.id, "Welcome", {
+        "reply_markup": {
+            "keyboard": [["Sample text", "Second sample"],   ["Keyboard"], ["I'm robot"]]
+            }
+        });
         console.log('[BOT] OK');
         
     } catch (error) {
@@ -314,13 +303,13 @@ bot.onText(/\/history/, async (msg) => {
 // --- Handler untuk Vercel Serverless Function ---
 module.exports = async (req, res) => {
     console.log('[VERCEL] Webhook function invoked.');
-      try {
-        await connectToDatabase();
-    } catch (dbErr) {
-        console.error('[VERCEL ERROR] Failed to connect to DB during invocation. Responding with 500.', dbErr.message);
-        // Jika koneksi DB gagal di awal, Telegram harus tahu ini fatal
-        return res.status(500).send('Internal Server Error: Database connection failed.');
-    }
+    //   try {
+    //     await connectToDatabase();
+    // } catch (dbErr) {
+    //     console.error('[VERCEL ERROR] Failed to connect to DB during invocation. Responding with 500.', dbErr.message);
+    //     // Jika koneksi DB gagal di awal, Telegram harus tahu ini fatal
+    //     return res.status(500).send('Internal Server Error: Database connection failed.');
+    // }
     // Segera kirim respons 200 OK ke Telegram.
     res.status(200).send('OK');
      console.log('[VERCEL] Sent 200 OK response to Telegram (DB ready).');
