@@ -271,15 +271,14 @@ module.exports = async (req, res) => {
     }
     // Segera kirim respons 200 OK ke Telegram.
     res.status(200).send('OK');
-    console.log('[VERCEL] Sent 200 OK response to Telegram.');
+     console.log('[VERCEL] Sent 200 OK response to Telegram (DB ready).');
 
     // Proses update dari Telegram di latar belakang secara asynchronous
     if (req.method === 'POST') {
         console.log('[VERCEL] Processing Telegram update asynchronously...');
-        // Tidak perlu await connectDb() di sini lagi secara eksplisit,
-        // karena bot.processUpdate akan memicu handler onText/onMessage
-        // yang di dalamnya sudah memanggil await connectDb()
         try {
+            // bot.processUpdate akan memicu event listeners bot.
+            // Handler bot sekarang akan mengasumsikan 'db' sudah siap.
             bot.processUpdate(req.body);
             console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
         } catch (error) {
