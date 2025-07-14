@@ -9,6 +9,7 @@ const pgClient = new Client({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false } // Penting untuk koneksi dari Vercel ke Supabase
 });
+let isConnected = false
 
 // Fungsi untuk menghubungkan ke database
 async function connectDb() {
@@ -27,7 +28,7 @@ async function connectDb() {
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token); // Mode webhook, tidak perlu { polling: true }
 
-
+connectDb();
 // --- Logika Penanganan Pesan ---
 
 // Fungsi utilitas untuk memproses pengguna (insert/update)
@@ -171,18 +172,34 @@ Gunakan perintah berikut:
 `);
 });
 
-// --- Handler untuk Vercel Serverless Function ---
 module.exports = async (req, res) => {
-    // Pastikan koneksi DB aktif sebelum memproses request
-    await connectDb();
-    console.log("method: ", req.method);
-    console.log("body: ", req.body);
-    
+    console.log('[VERCEL] Webhook function invoked.');
+
+    // PENTING: Segera kirim respons 200 OK ke Telegram.
+    // Ini memberitahu Telegram bahwa update sudah diterima,
+    // mencegah timeout di sisi Telegram.
+    res.status(200).send('OK');
+    console.log('[VERCEL] Sent 200 OK response to Telegram.');
+
+    // Sekarang, proses update dari Telegram di latar belakang.
+    // Pastikan koneksi DB sudah ada atau coba buat lagi jika terputus.
+    if (!isConnected) { // Periksa status koneksi
+        await connectDb(); // Coba hubungkan lagi jika terputus
+    }
+
     if (req.method === 'POST') {
-         console.log('[VERCEL] Processing Telegram update...'); // Log ini
-        bot.processUpdate(req.body);
-        console.log('[VERCEL] Sent 200 OK response.')
+        console.log('[VERCEL] Processing Telegram update asynchronously...');
+        // bot.processUpdate akan memicu event listeners bot
+        // Panggil ini tanpa 'await' agar fungsi utama segera selesai
+        // dan tidak memblokir respons 200 OK.
+        try {
+            bot.processUpdate(req.body);
+            console.log('[VERCEL] Update processed by bot listeners.');
+        } catch (error) {
+            console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
+        }
     } else {
-        res.status(405).send('Method Not Allowed');
+        // Ini akan dicatat, tapi respon sudah 200 OK sebelumnya.
+        console.log('[VERCEL] Method Not Allowed for this request.');
     }
 };
