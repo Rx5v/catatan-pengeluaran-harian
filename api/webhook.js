@@ -49,63 +49,47 @@ async function ensureUser(userFromMsg) {
         throw error; // Lempar error agar bisa ditangani di pemanggil
     }
 }
-
-// Perintah /start
 bot.onText(/\/start/, async (msg) => {
-    console.log("ontext: ", msg);
-    
     const chatId = msg.chat.id;
-    console.log("chat id: ", chatId);
-    console.log("chat from: ", msg.from);
     try {
         await ensureUser(msg.from); // Pastikan pengguna terdaftar/diperbarui
+
+        // Opsi untuk Reply Keyboard
+        const replyKeyboard = {
+            keyboard: [
+                [{ text: '➕ Catat Pengeluaran' }], // Baris 1, Tombol 1
+                [{ text: '🗓️ Pengeluaran Hari Ini' }, { text: '📜 Riwayat Pengeluaran' }], // Baris 2, Tombol 1 & 2
+                [{ text: 'ℹ️ Bantuan' }] // Baris 3, Tombol 1
+            ],
+            resize_keyboard: true, // Membuat keyboard lebih kecil
+            one_time_keyboard: false, // Keyboard akan tetap ada setelah digunakan
+            // selective: true // Hanya tampilkan keyboard untuk pengguna tertentu (opsional)
+        };
+
         bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.
-Gunakan perintah berikut:
-/add <jumlah> <deskripsi> [kategori] - Mencatat pengeluaran baru. Contoh: "/add 50000 Makan siang mie ayam"
-/today - Melihat ringkasan pengeluaran hari ini.
-/history - Melihat 5 pengeluaran terakhir.
-`);
+Silakan pilih menu di bawah atau ketik perintah langsung:`, {
+            reply_markup: replyKeyboard // Lampirkan keyboard ke pesan
+        });
+
     } catch (error) {
         console.error('Error in /start:', error.message);
         bot.sendMessage(chatId, 'Maaf, terjadi kesalahan. Silakan coba lagi nanti.');
     }
 });
 
-// Perintah /add <jumlah> <deskripsi> [kategori]
-// Regex: (\d+) untuk angka, (.+?) untuk deskripsi (non-greedy), (?: (.+))? untuk kategori opsional
-bot.onText(/\/add (\d+) (.+?)(?: (.+))?/, async (msg, match) => {
+// --- Tambahkan handler untuk tombol Reply Keyboard ---
+// Karena tombol Reply Keyboard mengirim teks, kita tangkap teksnya
+bot.onText(/➕ Catat Pengeluaran/, async (msg) => {
     const chatId = msg.chat.id;
-    const amount = parseFloat(match[1]);
-    const description = match[2].trim();
-    const category = match[3] ? match[3].trim() : 'Lain-lain'; // Default kategori jika tidak ada
-
-    if (isNaN(amount) || amount <= 0) {
-        bot.sendMessage(chatId, 'Jumlah pengeluaran tidak valid. Format: /add <jumlah> <deskripsi> [kategori]');
-        return;
-    }
-    if (!description) {
-        bot.sendMessage(chatId, 'Deskripsi pengeluaran tidak boleh kosong. Format: /add <jumlah> <deskripsi> [kategori]');
-        return;
-    }
-
-    try {
-        const userId = await ensureUser(msg.from); // Dapatkan ID internal pengguna
-
-        await pgClient.query(
-            `INSERT INTO expenses (user_id, amount, description, category, transaction_date)
-             VALUES ($1, $2, $3, $4, CURRENT_DATE);`,
-            [userId, amount, description, category]
-        );
-        bot.sendMessage(chatId, `✅ Pengeluaran "${description}" sebesar Rp ${amount.toLocaleString('id-ID')} (${category}) berhasil dicatat!`);
-
-    } catch (dbError) {
-        console.error('Error adding expense:', dbError.message);
-        bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mencatat pengeluaran Anda. Silakan coba lagi.');
-    }
+    bot.sendMessage(chatId, 'Silakan masukkan pengeluaran Anda dalam format: `/add <jumlah> <deskripsi> [kategori]`\nContoh: `/add 50000 Makan siang mie ayam`', { parse_mode: 'Markdown' });
 });
 
-// Perintah /today
-bot.onText(/\/today/, async (msg) => {
+bot.onText(/🗓️ Pengeluaran Hari Ini/, async (msg) => {
+    // Panggil logika yang sama dengan perintah /today
+    // Anda bisa memisahkan logika /today ke fungsi terpisah agar bisa dipanggil ulang
+    // Contoh: await handleTodayCommand(msg);
+    // Untuk saat ini, kita bisa memanggil ulang onText handler secara internal atau copy-paste
+    // Lebih baik buat fungsi terpisah:
     const chatId = msg.chat.id;
     const telegramId = msg.from.id.toString();
 
@@ -132,15 +116,15 @@ bot.onText(/\/today/, async (msg) => {
         });
 
         summary += `\nTotal hari ini: *Rp ${totalToday.toLocaleString('id-ID')}*`;
-        bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' }); // Gunakan Markdown untuk format bold
+        bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' });
     } catch (dbError) {
-        console.error('Error fetching today\'s expenses:', dbError.message);
+        console.error('Error fetching today\'s expenses from button:', dbError.message);
         bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil data pengeluaran hari ini.');
     }
 });
 
-// Perintah /history
-bot.onText(/\/history/, async (msg) => {
+bot.onText(/📜 Riwayat Pengeluaran/, async (msg) => {
+    // Panggil logika yang sama dengan perintah /history
     const chatId = msg.chat.id;
     const telegramId = msg.from.id.toString();
 
@@ -151,7 +135,7 @@ bot.onText(/\/history/, async (msg) => {
              FROM expenses
              WHERE user_id = $1
              ORDER BY transaction_date DESC, created_at DESC
-             LIMIT 5;`, // Ambil 5 pengeluaran terakhir
+             LIMIT 5;`,
             [userId]
         );
 
@@ -172,20 +156,19 @@ bot.onText(/\/history/, async (msg) => {
         bot.sendMessage(chatId, history);
 
     } catch (dbError) {
-        console.error('Error fetching history:', dbError.message);
+        console.error('Error fetching history from button:', dbError.message);
         bot.sendMessage(chatId, '❌ Maaf, terjadi kesalahan saat mengambil riwayat pengeluaran.');
     }
 });
 
-// Perintah lain atau pesan yang tidak dikenali
-bot.on('message', async (msg) => {
+bot.onText(/ℹ️ Bantuan/, async (msg) => {
     const chatId = msg.chat.id;
-    const text = msg.text || '';
-
-    // Hanya merespons jika bukan perintah yang ditangani di atas
-    if (!text.startsWith('/') && text.length > 0) {
-        bot.sendMessage(chatId, 'Maaf, saya tidak mengerti perintah itu. Ketik /start untuk melihat daftar perintah.');
-    }
+    bot.sendMessage(chatId, `Saya bot pencatat pengeluaran Anda.
+Gunakan perintah berikut:
+/add <jumlah> <deskripsi> [kategori] - Mencatat pengeluaran baru. Contoh: "/add 50000 Makan siang mie ayam"
+/today - Melihat ringkasan pengeluaran hari ini.
+/history - Melihat 5 pengeluaran terakhir.
+`);
 });
 
 // --- Handler untuk Vercel Serverless Function ---
