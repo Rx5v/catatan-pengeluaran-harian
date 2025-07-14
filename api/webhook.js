@@ -14,25 +14,62 @@ let isDbConnected = pgClient._connected;
 
 // Fungsi untuk menghubungkan ke database
 async function connectDb() {
-    console.log("is db connected: ", isDbConnected);
-    
-   if (!isDbConnected) {
-        try {
-            console.log('[DB] Attempting to connect to PostgreSQL...');
-            await pgClient.connect(); // Ini yang hanya boleh dipanggil sekali per instance Client
-            isDbConnected = true; // Set flag menjadi true setelah berhasil terhubung
-            console.log('[DB] Connected to PostgreSQL database (Supabase).');
-        } catch (err) {
-            console.error('[DB ERROR] Failed to connect to PostgreSQL:', err.message);
-            isDbConnected = false; // Set flag menjadi false jika gagal
-            // Penting: Jangan re-throw error di sini atau memblokir,
-            // karena ini akan menyebabkan timeout pada fungsi Vercel.
-            // Biarkan error tercatat dan coba lagi pada pemanggilan berikutnya.
-        }
-    } else {
-        console.log('[DB] Already connected to Supabase.');
+    // Jika sudah terhubung, tidak perlu melakukan apa-apa lagi
+    if (isDbConnected) {
+        console.log('[DB] Already connected to Supabase. Reusing existing connection.');
+        return;
+    }
+
+    // Cek apakah klien saat ini memiliki koneksi aktif yang bisa didaur ulang
+    // Ini adalah pengecekan yang lebih robust sebelum mencoba connect()
+    // Properti _connected dan _connecting adalah internal, tapi sering digunakan untuk ini
+    if (pgClient._connected === true || pgClient._connecting === true) {
+        console.log('[DB] Client instance is already in a connected/connecting state. Setting isDbConnected to true.');
+        isDbConnected = true; // Anggap sudah terhubung, hindari panggil connect()
+        return;
+    }
+
+    // Jika klien tidak terhubung dan tidak sedang dalam proses koneksi,
+    // coba untuk mengakhiri (end) klien yang mungkin rusak dari invocasi sebelumnya
+    // dan buat klien baru.
+    // PENTING: Untuk menghindari "Client has already been connected"
+    // kita akan membuat instance Client *baru* jika yang lama bermasalah,
+    // atau jika belum ada koneksi. Ini lebih aman.
+
+    // === Pendekatan yang Lebih Aman: Membuat Instance Klien Baru ===
+    // Ini mencegah masalah "reuse a client" dengan selalu memulai dengan klien baru
+    // jika yang lama tidak terhubung atau terdeteksi dalam keadaan aneh.
+    // Namun, ini *mungkin* sedikit meningkatkan cold start karena membuat objek baru.
+
+    try {
+        console.log('[DB] No active connection found. Attempting to create a new client and connect...');
+        // Jika belum terhubung, kita membuat instance Client baru dan menghubungkannya
+        // Ini memastikan kita tidak mencoba connect() pada klien yang sudah di-end atau rusak
+        const newPgClient = new Client({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
+        await newPgClient.connect();
+        
+        // Ganti instance klien global dengan yang baru yang sudah terhubung
+        Object.assign(pgClient, newPgClient); // Copy properties dari newPgClient ke pgClient
+        isDbConnected = true; // Set flag menjadi true
+        console.log('[DB] Successfully established a new connection to PostgreSQL.');
+
+        // Tambahkan event listener untuk error koneksi
+        pgClient.on('error', (err) => {
+            console.error('[DB ERROR] Client connection error:', err.message);
+            isDbConnected = false; // Set flag false jika ada error di koneksi aktif
+            // Tidak perlu end() di sini, biarkan garbage collector membersihkan jika koneksi benar-benar mati
+        });
+
+    } catch (err) {
+        console.error('[DB ERROR] Failed to establish new connection:', err.message);
+        isDbConnected = false; // Set flag menjadi false jika gagal
+        // Jangan re-throw di sini, biarkan proses berlanjut, error akan ditangani di query
     }
 }
+
 
 // Inisialisasi bot Telegram dengan mode webhook (tanpa polling)
 const token = process.env.TELEGRAM_BOT_TOKEN;
