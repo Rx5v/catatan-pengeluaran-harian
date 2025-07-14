@@ -103,7 +103,7 @@ async function ensureUser(userFromMsg) {
                     join_date: new Date()
                 }
             },
-            { upsert: true, returnDocument: 'after' }
+            { upsert: true, returnDocument: 'after', maxTimeMS: 2000 }
         );
         if (!result) {
             console.warn('[DB-EnsureUser WARNING] findOneAndUpdate returned a null/undefined result object. This is unexpected.');
@@ -141,7 +141,9 @@ bot.onText(/\/start/, async (msg) => {
     console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
     try {
         console.log('[BOT] Attempting to ensure user...'); // <-- NEW LOG
-        await ensureUser(msg.from);
+        const user = await ensureUser(msg.from);
+        console.log(user);
+        
         console.log(`[BOT] User ${msg.from.id} ensured in DB.`); // <-- NEW LOG
          const options = {
             reply_markup: {
@@ -324,7 +326,7 @@ module.exports = async (req, res) => {
         try {
             // bot.processUpdate akan memicu event listeners bot.
             // Handler bot sekarang akan mengasumsikan 'db' sudah siap.
-            await bot.processUpdate(req.body);
+            bot.processUpdate(req.body);
             console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
         } catch (error) {
             console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
