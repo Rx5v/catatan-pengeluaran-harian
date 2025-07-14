@@ -105,6 +105,14 @@ async function ensureUser(userFromMsg) {
             },
             { upsert: true, returnDocument: 'after' }
         );
+         if (result && result.value) {
+            console.log(`[DB-EnsureUser] findOneAndUpdate successful. Document: ${JSON.stringify(result.value)}`); 
+            console.log(`[DB-EnsureUser] Returned _id: ${result.value._id}`); 
+        } else {
+            // Ini akan terjadi jika dokumen tidak ditemukan dan upsert tidak berhasil atau ada masalah lain
+            console.warn('[DB-EnsureUser WARNING] findOneAndUpdate did not return a document or result.value is null.');
+            // Ini bisa jadi penyebab kenapa data tidak tersimpan
+        }
         console.log('[SUCCESS] Esuring data');
         return result.value._id;
     } catch (error) {
