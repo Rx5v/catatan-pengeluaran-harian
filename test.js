@@ -20,7 +20,7 @@ async function testConnection() {
         await client.connect();
         console.log("✅ Successfully connected to MongoDB Atlas!");
         const db = client.db(dbName);
-        console.log(`Connected to database: ${db.databaseName}`);
+        console.log(`Connected to database: ${db}`);
 
         // Coba lakukan operasi sederhana
         const usersCollection = db.collection('users');
