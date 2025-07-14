@@ -78,6 +78,7 @@ async function ensureUser(userFromMsg) {
         console.log('[PROCESS] Esuring data');
         
         const usersCollection = currentDb.collection('users'); // Gunakan currentDb
+        console.log('[PROCESS] Set table into user');
         
         const result = await usersCollection.findOneAndUpdate(
             { telegram_id: userFromMsg.id.toString() },
