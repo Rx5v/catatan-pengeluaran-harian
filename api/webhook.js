@@ -291,7 +291,7 @@ module.exports = async (req, res) => {
         try {
             // bot.processUpdate akan memicu event listeners bot.
             // Handler bot sekarang akan mengasumsikan 'db' sudah siap.
-            bot.processUpdate(req.body);
+            await bot.processUpdate(req.body);
             console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
         } catch (error) {
             console.error('[VERCEL ERROR] Error during bot.processUpdate:', error.message);
