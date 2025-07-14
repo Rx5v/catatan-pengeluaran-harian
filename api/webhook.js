@@ -13,6 +13,7 @@ bot.sendMessage(msg.chat.id,"Hello dear user");
 
 });
 bot.onText(/\/start/, (msg) => {
+console.log('[BOT] /Start');
 
 bot.sendMessage(msg.chat.id, "Welcome", {
 "reply_markup": {
