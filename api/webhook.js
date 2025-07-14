@@ -40,7 +40,7 @@ async function connectToDatabase() {
         await client.connect();
         db = client.db(dbName);
 
-        console.log('[DB] Successfully connected to MongoDB Atlas.');
+        console.log('[DB] Successfully connected to MongoDB Atlas.', db);
 
         client.on('error', (err) => {
             console.error('[DB ERROR] MongoDB client connection error:', err.message);
