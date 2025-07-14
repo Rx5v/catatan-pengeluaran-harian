@@ -104,10 +104,11 @@ bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
     try {
-        // await ensureUser(msg.from);
-        console.log(`[BOT] User ${msg.from.id} ensured in DB.`);
+        console.log('[BOT] Attempting to ensure user...'); // <-- NEW LOG
+        await ensureUser(msg.from);
+        console.log(`[BOT] User ${msg.from.id} ensured in DB.`); // <-- NEW LOG
 
-        const replyKeyboard = { // Pastikan Anda memiliki definisi ini
+        const replyKeyboard = { // Pastikan ini terdefinisi dengan benar
             keyboard: [
                 [{ text: '➕ Catat Pengeluaran' }],
                 [{ text: '🗓️ Pengeluaran Hari Ini' }, { text: '📜 Riwayat Pengeluaran' }],
@@ -117,12 +118,10 @@ bot.onText(/\/start/, async (msg) => {
             one_time_keyboard: false,
         };
 
-        await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.
-Silakan pilih menu di bawah atau ketik perintah langsung:`, {
+        console.log('[BOT] Attempting to send message with keyboard...'); // <-- NEW LOG
+        await bot.sendMessage(chatId, `Halo ${msg.from.first_name || 'pengguna'}! Saya bot pencatat pengeluaran Anda.`, {
             reply_markup: replyKeyboard
-        });
-        console.log(`[BOT] Sent /start response to chat ID: ${chatId}`);
-
+        })
     } catch (error) {
         console.error(`[BOT ERROR] Error in /start command for chat ID ${chatId}:`, error.message);
         await bot.sendMessage(chatId, 'Maaf, terjadi kesalahan. Silakan coba lagi nanti.');
