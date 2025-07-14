@@ -84,12 +84,9 @@ connectDb();
 
 // Fungsi utilitas untuk memproses pengguna (insert/update)
 async function ensureUser(userFromMsg) {
+     await connectDb(); 
     if (!isDbConnected || !db) {
-        console.warn('[DB WARNING] Database not connected for ensureUser. Attempting reconnect...');
-        await connectDb();
-        if (!isDbConnected || !db) {
-            throw new Error('Database connection is not available for ensureUser.');
-        }
+        throw new Error('Database connection is not available for ensureUser.');
     }
 
     try {
@@ -291,18 +288,16 @@ bot.onText(/\/history/, async (msg) => {
 module.exports = async (req, res) => {
     console.log('[VERCEL] Webhook function invoked.');
 
-    res.status(200).send('OK'); // Segera kirim respons 200 OK
+    // Segera kirim respons 200 OK ke Telegram.
+    res.status(200).send('OK');
     console.log('[VERCEL] Sent 200 OK response to Telegram.');
 
-    // Proses update di latar belakang
-    // Pastikan koneksi DB tersedia untuk pemrosesan
-    if (!isDbConnected || !db) {
-        console.log('[VERCEL] Database not connected. Attempting to establish connection for background processing...');
-        await connectDb();
-    }
-
+    // Proses update dari Telegram di latar belakang secara asynchronous
     if (req.method === 'POST') {
         console.log('[VERCEL] Processing Telegram update asynchronously...');
+        // Tidak perlu await connectDb() di sini lagi secara eksplisit,
+        // karena bot.processUpdate akan memicu handler onText/onMessage
+        // yang di dalamnya sudah memanggil await connectDb()
         try {
             bot.processUpdate(req.body);
             console.log('[VERCEL] Update processed by bot listeners (asynchronously).');
