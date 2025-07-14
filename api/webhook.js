@@ -12,41 +12,63 @@ const dbName = process.env.MONGODB_DB_NAME;
 let client = null; // Ini akan menjadi instance MongoClient
 let db = null;      // Ini akan menjadi instance Database
 let isDbConnected = false; // Flag untuk status koneksi
+let connectionPromise = null;
 
 async function connectDb() {
-    // Jika sudah terhubung, tidak perlu melakukan apa-apa lagi
-    if (isDbConnected && client && client.topology.isConnected()) { // Periksa koneksi aktif
+    // Jika sudah terhubung, langsung keluar
+    if (isDbConnected && client && client.topology.isConnected()) {
         console.log('[DB] Already connected to MongoDB. Reusing existing connection.');
         return;
     }
 
-    try {
-        console.log('[DB] Attempting to connect to MongoDB...');
-        // Membuat instance MongoClient baru dan menghubungkannya
-        // Ini lebih aman untuk Vercel agar tidak ada isu reuse client
-        client = new MongoClient(uri, {
-            // Beberapa opsi konfigurasi (opsional, tergantung versi driver)
-            // useNewUrlParser: true,
-            // useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 5000 // Batas waktu untuk menemukan server (5 detik)
-        });
+    // Jika ada promise koneksi yang sedang berjalan, tunggu saja promise itu selesai
+    if (connectionPromise) {
+        console.log('[DB] Connection attempt already in progress. Waiting for it to complete.');
+        try {
+            await connectionPromise; // Tunggu promise yang sedang berjalan
+            // Setelah promise selesai, periksa lagi apakah sudah terhubung
+            if (isDbConnected && client && client.topology.isConnected()) {
+                return;
+            }
+        } catch (e) {
+            console.error('[DB ERROR] Waiting for existing connection promise failed:', e.message);
+            connectionPromise = null; // Reset promise jika gagal
+        }
+    }
+    
+    // Jika masih belum terhubung atau ada masalah, buat promise koneksi baru
+    if (!isDbConnected || !client || !client.topology.isConnected()) {
+        connectionPromise = (async () => { // Bungkus logika koneksi dalam sebuah promise
+            try {
+                console.log('[DB] Attempting to create a new MongoDB client and connect...');
+                client = new MongoClient(uri, {
+                    serverSelectionTimeoutMS: 5000 
+                });
 
-        await client.connect(); // Menghubungkan ke MongoDB
-        db = client.db(dbName); // Pilih database
-        isDbConnected = true; // Set flag menjadi true
-        console.log('[DB] Successfully connected to MongoDB.');
+                await client.connect(); 
+                db = client.db(dbName);
+                isDbConnected = true;
+                console.log('[DB] Successfully connected to MongoDB Atlas.');
 
-        // Tambahkan event listener untuk error koneksi
-        client.on('error', (err) => {
-            console.error('[DB ERROR] MongoDB client connection error:', err.message);
-            isDbConnected = false; // Set flag false jika ada error di koneksi aktif
-            client.close(); // Tutup klien yang error
-        });
-
-    } catch (err) {
-        console.error('[DB ERROR] Failed to connect to MongoDB:', err.message);
-        isDbConnected = false; // Set flag menjadi false jika gagal
-        // Jangan re-throw, biarkan proses berlanjut, error akan ditangani di query
+                client.on('error', (err) => {
+                    console.error('[DB ERROR] MongoDB client connection error:', err.message);
+                    isDbConnected = false; 
+                    if (client && client.topology.isConnected()) {
+                        client.close().catch(e => console.error('Error closing client on error:', e));
+                    }
+                });
+                return true; // Sukses
+            } catch (err) {
+                console.error('[DB ERROR] Failed to establish new connection to MongoDB Atlas:', err.message);
+                isDbConnected = false;
+                client = null; // Reset client agar bisa dibuat ulang
+                db = null; // Reset db
+                throw err; // Lempar error agar bisa ditangkap oleh await
+            } finally {
+                connectionPromise = null; // Hapus promise setelah selesai (baik sukses maupun gagal)
+            }
+        })();
+        await connectionPromise; // Tunggu promise koneksi baru
     }
 }
 
