@@ -104,7 +104,7 @@ bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     console.log(`[BOT] Received /start command from chat ID: ${chatId}`);
     try {
-        await ensureUser(msg.from);
+        // await ensureUser(msg.from);
         console.log(`[BOT] User ${msg.from.id} ensured in DB.`);
 
         const replyKeyboard = { // Pastikan Anda memiliki definisi ini
