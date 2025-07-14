@@ -10,7 +10,7 @@ const pgClient = new Client({
     ssl: { rejectUnauthorized: false } // Penting untuk koneksi dari Vercel ke Supabase
 });
 let isConnected = false
-let isDbConnected = false;
+let isDbConnected = pgClient._connected;
 
 // Fungsi untuk menghubungkan ke database
 async function connectDb() {
